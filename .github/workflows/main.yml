@@ -1,0 +1,41 @@
+name: Android APK Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Bu tugma orqali buildni GitHub saytidan o'zingiz ham qo'lda ishga tushira olasiz
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Repozitoriyadagi kodlarni serverga yuklash
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Java (JDK 17) muhitini sozlash
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      # 3. Gradle'ga ishga tushirish huquqini berish (Sizdagi xatolikni aynan shu qator tuzatadi)
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 4. APK faylni yig'ish (Assemble Debug)
+      - name: Build with Gradle
+        run: ./gradlew assembleDebug
+
+      # 5. Tayyor bo'lgan APK faylni yuklab olish uchun GitHub'ga chiqarish
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Generated-Android-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
