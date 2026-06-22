@@ -1,0 +1,52 @@
+name: Android APK Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Repozitoriyadagi kodlarni serverga yuklash
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Java (JDK 17) muhitini sozlash
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      # 3. Papkani avtomatik topish va Gradle'ga ruxsat berish
+      # (Bu qadam papka ichidagi gradlew faylini topib, unga ruxsat beradi)
+      - name: Grant execute permission for gradlew
+        run: |
+          GRADLEW_PATH=$(find . -name gradlew -print -quit)
+          if [ -z "$GRADLEW_PATH" ]; then
+            echo "Error: gradlew file not found anywhere in the repository!"
+            exit 1
+          fi
+          GRADLEW_DIR=$(dirname "$GRADLEW_PATH")
+          echo "Found gradlew in: $GRADLEW_DIR"
+          chmod +x "$GRADLEW_PATH"
+          echo "GRADLEW_DIR=$GRADLEW_DIR" >> $GITHUB_ENV
+
+      # 4. APK faylni o'sha topilgan papka ichida yig'ish
+      - name: Build with Gradle
+        run: ./gradlew assembleDebug
+        working-directory: ${{ env.GRADLEW_DIR }}
+
+      # 5. Tayyor bo'lgan APK faylni GitHub'ga chiqarish
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Generated-Android-APK
+          path: "**/build/outputs/apk/debug/*-debug.apk"
+          retention-days: 7
