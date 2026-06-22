@@ -1,0 +1,62 @@
+name: Android APK Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Kodlarni serverga yuklash
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Java (JDK 17) muhitini sozlash
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      # 3. Gradle wrapper borligini tekshirish yoki noldan yaratish
+      - name: Check or Generate Gradle Wrapper
+        run: |
+          GRADLEW_PATH=$(find . -name gradlew -print -quit)
+          if [ -z "$GRADLEW_PATH" ]; then
+            echo "gradlew topilmadi! build.gradle qidirilmoqda..."
+            BUILD_GRADLE_PATH=$(find . -name "build.gradle*" -print -quit)
+            if [ -z "$BUILD_GRADLE_PATH" ]; then
+              echo "Xato: build.gradle ham topilmadi. Bu Android loyihasi emas yoki ZIP xato yuklangan!"
+              exit 1
+            fi
+            BUILD_DIR=$(dirname "$BUILD_GRADLE_PATH")
+            echo "Loyiha papkasi topildi: $BUILD_DIR. Wrapper yaratilmoqda..."
+            cd "$BUILD_DIR"
+            gradle wrapper
+            chmod +x gradlew
+            echo "GRADLEW_DIR=$BUILD_DIR" >> $GITHUB_ENV
+          else
+            BUILD_DIR=$(dirname "$GRADLEW_PATH")
+            echo "Tayyor gradlew topildi: $BUILD_DIR"
+            chmod +x "$GRADLEW_PATH"
+            echo "GRADLEW_DIR=$BUILD_DIR" >> $GITHUB_ENV
+          fi
+
+      # 4. APK faylni yig'ish
+      - name: Build with Gradle
+        run: ./gradlew assembleDebug
+        working-directory: ${{ env.GRADLEW_DIR }}
+
+      # 5. Tayyor APK'ni yuklash uchun chiqarish
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Generated-Android-APK
+          path: "**/build/outputs/apk/debug/*-debug.apk"
+          retention-days: 7
